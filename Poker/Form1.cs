@@ -3,9 +3,10 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Drawing;
+using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace Poker
@@ -22,6 +23,11 @@ namespace Poker
         private bool[] cardSelectedToChange = new bool[5];
         private bool canSelectCards = false;
 
+        private readonly byte[] securityKey = Encoding.UTF8.GetBytes("Poker-CIA-Integrity-Key-2026");
+        private string encodedFunds;
+        private string fundsHash;
+        private string fundsMac;
+        private bool securityFailure = false;
         private Label lblWinRate;
 
         public Form1()
@@ -66,6 +72,7 @@ namespace Poker
                 picCards[i].MouseClick += PicCard_Click;
                 grpTable.Controls.Add(picCards[i]);
             }
+            InitializeSecureFunds(totalFunds);
             ResetGame();
         }
 
@@ -191,6 +198,7 @@ namespace Poker
         {
             txtResult.Text = "";
             currentBet = 0;
+            UpdateFundsDisplay();
             btnChange.Enabled = false;
             btnEvaluate.Enabled = false;
             btnDeal.Enabled = false; // 必須先押注
@@ -231,6 +239,11 @@ namespace Poker
 
         private void btnBet_Click(object sender, EventArgs e)
         {
+            ExecuteGameAction(PlaceBet);
+        }
+
+        private void PlaceBet()
+        {
             if (int.TryParse(txtBetAmount.Text, out int betAmount))
             {
                 if (betAmount > totalFunds || betAmount <= 0)
@@ -239,9 +252,7 @@ namespace Poker
                     return;
                 }
                 currentBet = betAmount;
-                totalFunds -= currentBet;
-                txtTotalFunds.Text = totalFunds.ToString();
-                ApplyCIASecurity(); // 資安三要素保護機制
+                SecureSetFunds(totalFunds - currentBet, "下注扣款");
 
                 btnDeal.Enabled = true;
                 btnBet.Enabled = false;
@@ -254,6 +265,11 @@ namespace Poker
         }
 
         private void btnDeal_Click(object sender, EventArgs e)
+        {
+            ExecuteGameAction(DealCards);
+        }
+
+        private void DealCards()
         {
             InitializeDeck();
             nextCardIndex = 0;
@@ -278,6 +294,11 @@ namespace Poker
         }
 
         private void btnChange_Click(object sender, EventArgs e)
+        {
+            ExecuteGameAction(ChangeCards);
+        }
+
+        private void ChangeCards()
         {
             for (int i = 0; i < 5; i++)
             {
@@ -306,6 +327,11 @@ namespace Poker
         }
 
         private void btnEvaluate_Click(object sender, EventArgs e)
+        {
+            ExecuteGameAction(EvaluateHand);
+        }
+
+        private void EvaluateHand()
         {
             string[] suitsMap = { "梅花", "方塊", "紅心", "黑桃" };
             string[] pointsMap = { "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K" };
@@ -382,10 +408,8 @@ namespace Poker
             else if (isOnePair) multiplier = 1;
 
             int winAmount = currentBet * multiplier;
-            totalFunds += winAmount;
+            SecureSetFunds(totalFunds + winAmount, "結算獎金");
 
-            txtTotalFunds.Text = totalFunds.ToString();
-            ApplyCIASecurity(); // 結算資金安全防護
             RunDeepLearningModel(); // 賽後重新訓練深度學習模型
 
             if (multiplier > 0)
@@ -469,21 +493,204 @@ namespace Poker
             }
         }
 
-        private async void ApplyCIASecurity()
+        private void ExecuteGameAction(Action action)
         {
-            // 資安三要素 (CIA Triad: Confidentiality 機密性, Integrity 完整性, Availability 可用性)
+            if (securityFailure)
+            {
+                MessageBox.Show("資金完整性驗證失敗，遊戲已鎖定。");
+                return;
+            }
+
             try
             {
-                // 動態特效：展示加密的 Base64 字串，模擬安全傳輸保護
-                string encryptedFunds = Convert.ToBase64String(Encoding.UTF8.GetBytes(totalFunds.ToString()));
-                txtTotalFunds.Text = $"[CIA防護] {encryptedFunds}";
-                await Task.Delay(1000); // 延遲讓玩家明顯看到加密效果
-                txtTotalFunds.Text = totalFunds.ToString(); // 還原
+                if (!VerifyFundsIntegrity())
+                {
+                    HandleSecurityFailure("資金資料完整性驗證失敗，偵測到可能的竄改。");
+                    return;
+                }
+
+                action();
             }
             catch (Exception ex)
             {
-                this.Text = $"[InfoSec - 安全攔截] {ex.Message}";
+                HandleSecurityFailure($"系統例外已攔截：{ex.Message}");
             }
+        }
+
+        private void InitializeSecureFunds(int amount)
+        {
+            totalFunds = amount;
+            encodedFunds = EncryptFunds(amount);
+            fundsHash = ComputeSha256($"{amount}|{encodedFunds}");
+            fundsMac = ComputeHmac($"{amount}|{encodedFunds}|{fundsHash}");
+            UpdateFundsDisplay();
+        }
+
+        private void SecureSetFunds(int newAmount, string reason)
+        {
+            if (newAmount < 0)
+            {
+                throw new InvalidOperationException("資金不可低於 0。");
+            }
+
+            if (!VerifyFundsIntegrity())
+            {
+                throw new InvalidOperationException("資金完整性驗證失敗。");
+            }
+
+            totalFunds = newAmount;
+            encodedFunds = EncryptFunds(newAmount);
+            fundsHash = ComputeSha256($"{reason}|{newAmount}|{encodedFunds}");
+            fundsMac = ComputeHmac($"{reason}|{newAmount}|{encodedFunds}|{fundsHash}");
+            UpdateFundsDisplay();
+        }
+
+        private bool VerifyFundsIntegrity()
+        {
+            if (string.IsNullOrEmpty(encodedFunds) || string.IsNullOrEmpty(fundsHash) || string.IsNullOrEmpty(fundsMac))
+            {
+                return false;
+            }
+
+            if (DecryptFunds(encodedFunds) != totalFunds)
+            {
+                return false;
+            }
+
+            return IsKnownHashForCurrentFunds() && IsKnownMacForCurrentFunds();
+        }
+
+        private bool IsKnownHashForCurrentFunds()
+        {
+            string initialHash = ComputeSha256($"{totalFunds}|{encodedFunds}");
+            string betHash = ComputeSha256($"下注扣款|{totalFunds}|{encodedFunds}");
+            string settleHash = ComputeSha256($"結算獎金|{totalFunds}|{encodedFunds}");
+
+            return FixedTimeEquals(fundsHash, initialHash)
+                || FixedTimeEquals(fundsHash, betHash)
+                || FixedTimeEquals(fundsHash, settleHash);
+        }
+
+        private bool IsKnownMacForCurrentFunds()
+        {
+            string initialMac = ComputeHmac($"{totalFunds}|{encodedFunds}|{fundsHash}");
+            string betMac = ComputeHmac($"下注扣款|{totalFunds}|{encodedFunds}|{fundsHash}");
+            string settleMac = ComputeHmac($"結算獎金|{totalFunds}|{encodedFunds}|{fundsHash}");
+
+            return FixedTimeEquals(fundsMac, initialMac)
+                || FixedTimeEquals(fundsMac, betMac)
+                || FixedTimeEquals(fundsMac, settleMac);
+        }
+
+        private string EncryptFunds(int amount)
+        {
+            using (Aes aes = Aes.Create())
+            {
+                aes.Key = GetAesKey();
+                aes.GenerateIV();
+
+                byte[] plain = Encoding.UTF8.GetBytes(amount.ToString());
+                byte[] cipher;
+
+                using (ICryptoTransform encryptor = aes.CreateEncryptor())
+                using (MemoryStream cipherStream = new MemoryStream())
+                using (CryptoStream cryptoStream = new CryptoStream(cipherStream, encryptor, CryptoStreamMode.Write))
+                {
+                    cryptoStream.Write(plain, 0, plain.Length);
+                    cryptoStream.FlushFinalBlock();
+                    cipher = cipherStream.ToArray();
+                }
+
+                byte[] payload = new byte[aes.IV.Length + cipher.Length];
+                Buffer.BlockCopy(aes.IV, 0, payload, 0, aes.IV.Length);
+                Buffer.BlockCopy(cipher, 0, payload, aes.IV.Length, cipher.Length);
+
+                return Convert.ToBase64String(payload);
+            }
+        }
+
+        private int DecryptFunds(string protectedValue)
+        {
+            byte[] payload = Convert.FromBase64String(protectedValue);
+
+            using (Aes aes = Aes.Create())
+            {
+                aes.Key = GetAesKey();
+
+                byte[] iv = new byte[aes.BlockSize / 8];
+                byte[] cipher = new byte[payload.Length - iv.Length];
+                Buffer.BlockCopy(payload, 0, iv, 0, iv.Length);
+                Buffer.BlockCopy(payload, iv.Length, cipher, 0, cipher.Length);
+                aes.IV = iv;
+
+                using (ICryptoTransform decryptor = aes.CreateDecryptor())
+                using (MemoryStream plainStream = new MemoryStream())
+                using (CryptoStream cryptoStream = new CryptoStream(plainStream, decryptor, CryptoStreamMode.Write))
+                {
+                    cryptoStream.Write(cipher, 0, cipher.Length);
+                    cryptoStream.FlushFinalBlock();
+                    string plain = Encoding.UTF8.GetString(plainStream.ToArray());
+                    return int.Parse(plain);
+                }
+            }
+        }
+
+        private byte[] GetAesKey()
+        {
+            using (SHA256 sha = SHA256.Create())
+            {
+                return sha.ComputeHash(securityKey);
+            }
+        }
+
+        private string ComputeSha256(string value)
+        {
+            using (SHA256 sha = SHA256.Create())
+            {
+                return Convert.ToBase64String(sha.ComputeHash(Encoding.UTF8.GetBytes(value)));
+            }
+        }
+
+        private string ComputeHmac(string value)
+        {
+            using (HMACSHA256 hmac = new HMACSHA256(securityKey))
+            {
+                return Convert.ToBase64String(hmac.ComputeHash(Encoding.UTF8.GetBytes(value)));
+            }
+        }
+
+        private bool FixedTimeEquals(string left, string right)
+        {
+            if (left == null || right == null || left.Length != right.Length)
+            {
+                return false;
+            }
+
+            int diff = 0;
+            for (int i = 0; i < left.Length; i++)
+            {
+                diff |= left[i] ^ right[i];
+            }
+
+            return diff == 0;
+        }
+
+        private void UpdateFundsDisplay()
+        {
+            txtTotalFunds.Text = $"{totalFunds} | AES:{encodedFunds.Substring(0, 12)}...";
+        }
+
+        private void HandleSecurityFailure(string message)
+        {
+            securityFailure = true;
+            canSelectCards = false;
+            btnBet.Enabled = false;
+            btnDeal.Enabled = false;
+            btnChange.Enabled = false;
+            btnEvaluate.Enabled = false;
+            txtResult.Text = $"[InfoSec] {message}";
+            this.Text = "五張撲克牌 - 資安鎖定";
+            MessageBox.Show(message);
         }
         #endregion
     }

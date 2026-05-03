@@ -51,7 +51,7 @@
             // 
             // btnBet
             // 
-            this.btnBet.Location = new System.Drawing.Point(867, 50);
+            this.btnBet.Location = new System.Drawing.Point(920, 50);
             this.btnBet.Margin = new System.Windows.Forms.Padding(6, 6, 6, 6);
             this.btnBet.Name = "btnBet";
             this.btnBet.Size = new System.Drawing.Size(162, 50);
@@ -62,7 +62,7 @@
             // 
             // txtBetAmount
             // 
-            this.txtBetAmount.Location = new System.Drawing.Point(607, 54);
+            this.txtBetAmount.Location = new System.Drawing.Point(700, 54);
             this.txtBetAmount.Margin = new System.Windows.Forms.Padding(6, 6, 6, 6);
             this.txtBetAmount.Name = "txtBetAmount";
             this.txtBetAmount.Size = new System.Drawing.Size(212, 36);
@@ -72,7 +72,7 @@
             // lblBet
             // 
             this.lblBet.AutoSize = true;
-            this.lblBet.Location = new System.Drawing.Point(477, 60);
+            this.lblBet.Location = new System.Drawing.Point(580, 60);
             this.lblBet.Margin = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this.lblBet.Name = "lblBet";
             this.lblBet.Size = new System.Drawing.Size(106, 24);
@@ -85,7 +85,7 @@
             this.txtTotalFunds.Margin = new System.Windows.Forms.Padding(6, 6, 6, 6);
             this.txtTotalFunds.Name = "txtTotalFunds";
             this.txtTotalFunds.ReadOnly = true;
-            this.txtTotalFunds.Size = new System.Drawing.Size(212, 36);
+            this.txtTotalFunds.Size = new System.Drawing.Size(380, 36);
             this.txtTotalFunds.TabIndex = 1;
             this.txtTotalFunds.Text = "1000000";
             // 
@@ -203,4 +203,3 @@
         private System.Windows.Forms.GroupBox grpTable;
     }
 }
-

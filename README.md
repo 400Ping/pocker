@@ -16,9 +16,9 @@
 - **智能勝率預測模型**：動態展示運算後的勝率百分比，並且已經實作專屬 UI 標籤顯示於主介面下方，給予最清爽明瞭的輔助參考。
 
 ### 資安防護 (InfoSec / CIA Triad)
-- **機密性 (Confidentiality)**：所有的資金變動都將進行 Base64/Hash 加密轉換。
-- **完整性 (Integrity)**：確保資金在變動過程中未被惡意竄改。
-- **可用性 (Availability)**：嚴謹的 Exception Handling 防呆機制，維持系統的可用性。
+- **機密性 (Confidentiality)**：資金狀態會使用 AES 加密，並以 Base64 token 顯示加密後的狀態摘要。
+- **完整性 (Integrity)**：每次押注與結算都會以 SHA-256 與 HMAC-SHA256 建立驗證碼，下一次資金操作前會重新驗證，偵測到狀態不一致時會鎖定遊戲。
+- **可用性 (Availability)**：主要遊戲操作都包在集中式例外處理流程中，發生驗證失敗或未預期錯誤時會停用下注、發牌、換牌與判斷牌型按鈕，避免錯誤狀態繼續擴散。
 
 ---
 *Developed with C# WinForms*
