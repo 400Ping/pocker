@@ -2,6 +2,29 @@
 
 這是一個使用 C# WinForms 製作的五張撲克牌遊戲。
 
+## 專案截圖
+
+### 初始畫面
+![初始畫面](docs/screenshots/poker-01-start.png)
+
+### 發牌與統計分析
+![發牌與統計分析](docs/screenshots/poker-02-dealt-statistics.png)
+
+### 牌面狀態摘要
+![牌面狀態摘要](docs/screenshots/poker-03-card-summary.png)
+
+### 最佳換牌建議
+![最佳換牌建議](docs/screenshots/poker-04-swap-advice.png)
+
+### 選擇換牌
+![選擇換牌](docs/screenshots/poker-05-selected-cards.png)
+
+### 換牌後統計分析
+![換牌後統計分析](docs/screenshots/poker-06-after-change.png)
+
+### 牌型判斷與結算
+![牌型判斷與結算](docs/screenshots/poker-07-result.png)
+
 ## 核心功能
 
 - 五張撲克牌遊戲流程：押注、發牌、換牌、牌型判斷與獎金結算。
